@@ -27,6 +27,7 @@ export default function ChoreTracker() {
   const [allTimeScore, setAllTimeScore] = useState<number>(0);
   const [todayScore, setTodayScore] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
+  const [justLoaded, setJustLoaded] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
   const playSound = (frequency: number, duration: number) => {
@@ -77,92 +78,95 @@ export default function ChoreTracker() {
   };
 
   // Load data from Supabase
-useEffect(() => {
-  const loadData = async () => {
-    setMounted(true);
-    
-    try {
-      const { data, error } = await supabase
-        .from('chores')
-        .select('*')
-        .eq('id', 1)
-        .single();
+  useEffect(() => {
+    const loadData = async () => {
+      setMounted(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from('chores')
+          .select('*')
+          .eq('id', 1)
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data) {
-        setChores(data.chore_data);
-        setLastResetDate(data.last_reset_date);
-        setAllTimeScore(data.all_time_score);
-        setTodayScore(data.today_score);
+        if (data) {
+          setChores(data.chore_data);
+          setLastResetDate(data.last_reset_date);
+          setAllTimeScore(data.all_time_score);
+          setTodayScore(data.today_score);
+          setJustLoaded(true); // Mark that we just loaded
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
       }
-    } catch (error) {
-  console.error('Error loading data:', error);
-  console.error('Error details:', JSON.stringify(error, null, 2));
-}
-  };
+    };
 
-  loadData();
-}, []);
+    loadData();
+  }, []);
 
   // Check for daily reset
-useEffect(() => {
-  if (!mounted) return;
+  useEffect(() => {
+    if (!mounted) return;
 
-  const resetIfNeeded = async () => {
-    const today = new Date().toDateString();
-    if (today !== lastResetDate) {
-      const newAllTimeScore = allTimeScore + todayScore;
-      const resetChores = chores.map(chore => ({ ...chore, completed: false }));
+    const resetIfNeeded = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      if (today !== lastResetDate) {
+        const newAllTimeScore = allTimeScore + todayScore;
+        const resetChores = chores.map(chore => ({ ...chore, completed: false }));
+
+        try {
+          await supabase
+            .from('chores')
+            .update({
+              chore_data: resetChores,
+              last_reset_date: today,
+              all_time_score: newAllTimeScore,
+              today_score: 0
+            })
+            .eq('id', 1);
+
+          setAllTimeScore(newAllTimeScore);
+          setChores(resetChores);
+          setTodayScore(0);
+          setLastResetDate(today);
+          setShowCelebration(false);
+        } catch (error) {
+          console.error('Error resetting chores:', error);
+        }
+      }
+    };
+
+    resetIfNeeded();
+  }, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
+
+  // Save chores to Supabase whenever they change (but not on initial load)
+  useEffect(() => {
+    if (!mounted || justLoaded) {
+      if (justLoaded) setJustLoaded(false);
+      return;
+    }
+
+    const saveData = async () => {
+      const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+      setTodayScore(currentTodayScore);
 
       try {
         await supabase
           .from('chores')
           .update({
-            chore_data: resetChores,
-            last_reset_date: today,
-            all_time_score: newAllTimeScore,
-            today_score: 0
+            chore_data: chores,
+            today_score: currentTodayScore
           })
           .eq('id', 1);
-
-        setAllTimeScore(newAllTimeScore);
-        setChores(resetChores);
-        setTodayScore(0);
-        setLastResetDate(today);
-        setShowCelebration(false);
       } catch (error) {
-        console.error('Error resetting chores:', error);
+        console.error('Error saving chores:', error);
       }
-    }
-  };
+    };
 
-  resetIfNeeded();
-}, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
-
-  // Save chores to Supabase whenever they change
-useEffect(() => {
-  if (!mounted) return;
-
-  const saveData = async () => {
-    const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
-    setTodayScore(currentTodayScore);
-
-    try {
-      await supabase
-        .from('chores')
-        .update({
-          chore_data: chores,
-          today_score: currentTodayScore
-        })
-        .eq('id', 1);
-    } catch (error) {
-      console.error('Error saving chores:', error);
-    }
-  };
-
-  saveData();
-}, [chores, mounted]);
+    saveData();
+  }, [chores, mounted, justLoaded]);
 
   const toggleChore = (id: number) => {
     const chore = chores.find(c => c.id === id);
