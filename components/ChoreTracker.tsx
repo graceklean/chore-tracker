@@ -79,7 +79,14 @@ export default function ChoreTracker() {
 
   // Load data from Supabase and poll for changes
   useEffect(() => {
+    let lastInteraction = Date.now();
+    
     const loadData = async () => {
+      // Don't load if user interacted in the last 2 seconds
+      if (Date.now() - lastInteraction < 2000) {
+        return;
+      }
+      
       try {
         const { data, error } = await supabase
           .from('chores')
@@ -103,12 +110,24 @@ export default function ChoreTracker() {
       if (!mounted) setMounted(true);
     };
 
+    // Track user interactions
+    const handleInteraction = () => {
+      lastInteraction = Date.now();
+    };
+    
+    window.addEventListener('click', handleInteraction);
+    window.addEventListener('touchstart', handleInteraction);
+
     loadData();
 
     // Poll for updates every 3 seconds
     const interval = setInterval(loadData, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+    };
   }, []);
 
   // Check for daily reset
