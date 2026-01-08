@@ -169,32 +169,34 @@ useEffect(() => {
     resetIfNeeded();
   }, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
 
-  // Save chores to Supabase whenever they change (but not on initial load)
-  useEffect(() => {
-    if (!mounted || justLoaded) {
-      if (justLoaded) setJustLoaded(false);
-      return;
+  // Save chores to Supabase whenever they change (but not on initial load or realtime update)
+useEffect(() => {
+  if (!mounted || justLoaded) {
+    if (justLoaded) setJustLoaded(false);
+    return;
+  }
+
+  const saveData = async () => {
+    const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+    setTodayScore(currentTodayScore);
+
+    try {
+      await supabase
+        .from('chores')
+        .update({
+          chore_data: chores,
+          today_score: currentTodayScore
+        })
+        .eq('id', 1);
+    } catch (error) {
+      console.error('Error saving chores:', error);
     }
+  };
 
-    const saveData = async () => {
-      const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
-      setTodayScore(currentTodayScore);
-
-      try {
-        await supabase
-          .from('chores')
-          .update({
-            chore_data: chores,
-            today_score: currentTodayScore
-          })
-          .eq('id', 1);
-      } catch (error) {
-        console.error('Error saving chores:', error);
-      }
-    };
-
-    saveData();
-  }, [chores, mounted, justLoaded]);
+  // Add a small delay to debounce rapid changes
+  const timeoutId = setTimeout(saveData, 300);
+  return () => clearTimeout(timeoutId);
+}, [chores, mounted, justLoaded]);
 
   const toggleChore = (id: number) => {
     const chore = chores.find(c => c.id === id);
