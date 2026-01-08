@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, Star, Sparkles, Trophy, TrendingUp } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface Chore {
   id: number;
@@ -75,60 +76,93 @@ export default function ChoreTracker() {
     });
   };
 
-  useEffect(() => {
+  // Load data from Supabase
+useEffect(() => {
+  const loadData = async () => {
     setMounted(true);
-    const savedChores = localStorage.getItem('chores');
-    const savedDate = localStorage.getItem('lastResetDate');
-    const savedAllTimeScore = localStorage.getItem('allTimeScore');
-    const savedTodayScore = localStorage.getItem('todayScore');
     
-    if (savedChores) {
-      setChores(JSON.parse(savedChores));
-    }
-    
-    if (savedDate) {
-      setLastResetDate(savedDate);
-    } else {
-      setLastResetDate(new Date().toDateString());
-    }
+    try {
+      const { data, error } = await supabase
+        .from('chores')
+        .select('*')
+        .eq('id', 1)
+        .single();
 
-    if (savedAllTimeScore) {
-      setAllTimeScore(parseInt(savedAllTimeScore));
-    }
+      if (error) throw error;
 
-    if (savedTodayScore) {
-      setTodayScore(parseInt(savedTodayScore));
-    }
-  }, []);
+      if (data) {
+        setChores(data.chore_data);
+        setLastResetDate(data.last_reset_date);
+        setAllTimeScore(data.all_time_score);
+        setTodayScore(data.today_score);
+      }
+    } catch (error) {
+  console.error('Error loading data:', error);
+  console.error('Error details:', JSON.stringify(error, null, 2));
+}
+  };
 
-  useEffect(() => {
-    if (!mounted) return;
+  loadData();
+}, []);
 
+  // Check for daily reset
+useEffect(() => {
+  if (!mounted) return;
+
+  const resetIfNeeded = async () => {
     const today = new Date().toDateString();
     if (today !== lastResetDate) {
       const newAllTimeScore = allTimeScore + todayScore;
-      setAllTimeScore(newAllTimeScore);
-      localStorage.setItem('allTimeScore', newAllTimeScore.toString());
-
       const resetChores = chores.map(chore => ({ ...chore, completed: false }));
-      setChores(resetChores);
-      setTodayScore(0);
-      setLastResetDate(today);
-      localStorage.setItem('chores', JSON.stringify(resetChores));
-      localStorage.setItem('lastResetDate', today);
-      localStorage.setItem('todayScore', '0');
-      setShowCelebration(false);
-    }
-  }, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
 
-  useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('chores', JSON.stringify(chores));
-      const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
-      setTodayScore(currentTodayScore);
-      localStorage.setItem('todayScore', currentTodayScore.toString());
+      try {
+        await supabase
+          .from('chores')
+          .update({
+            chore_data: resetChores,
+            last_reset_date: today,
+            all_time_score: newAllTimeScore,
+            today_score: 0
+          })
+          .eq('id', 1);
+
+        setAllTimeScore(newAllTimeScore);
+        setChores(resetChores);
+        setTodayScore(0);
+        setLastResetDate(today);
+        setShowCelebration(false);
+      } catch (error) {
+        console.error('Error resetting chores:', error);
+      }
     }
-  }, [chores, mounted]);
+  };
+
+  resetIfNeeded();
+}, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
+
+  // Save chores to Supabase whenever they change
+useEffect(() => {
+  if (!mounted) return;
+
+  const saveData = async () => {
+    const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+    setTodayScore(currentTodayScore);
+
+    try {
+      await supabase
+        .from('chores')
+        .update({
+          chore_data: chores,
+          today_score: currentTodayScore
+        })
+        .eq('id', 1);
+    } catch (error) {
+      console.error('Error saving chores:', error);
+    }
+  };
+
+  saveData();
+}, [chores, mounted]);
 
   const toggleChore = (id: number) => {
     const chore = chores.find(c => c.id === id);
