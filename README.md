@@ -94,3 +94,4 @@ const [chores, setChores] = useState<Chore[]>([
 ## License
 
 MIT
+# Cache bust
