@@ -77,62 +77,39 @@ export default function ChoreTracker() {
     });
   };
 
-  // Load data from Supabase
-useEffect(() => {
-  const loadData = async () => {
-    setMounted(true);
-    
-    try {
-      const { data, error } = await supabase
-        .from('chores')
-        .select('*')
-        .eq('id', 1)
-        .single();
+  // Load data from Supabase and poll for changes
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('chores')
+          .select('*')
+          .eq('id', 1)
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data) {
-        setChores(data.chore_data);
-        setLastResetDate(data.last_reset_date);
-        setAllTimeScore(data.all_time_score);
-        setTodayScore(data.today_score);
-        setJustLoaded(true);
+        if (data) {
+          setChores(data.chore_data);
+          setLastResetDate(data.last_reset_date);
+          setAllTimeScore(data.all_time_score);
+          setTodayScore(data.today_score);
+          setJustLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
       }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  };
+      
+      if (!mounted) setMounted(true);
+    };
 
-  loadData();
+    loadData();
 
-  // Subscribe to realtime changes
-  const channel = supabase
-    .channel('chores-changes')
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'chores',
-        filter: 'id=eq.1'
-      },
-      (payload) => {
-        console.log('Realtime update received:', payload);
-        const newData = payload.new as any;
-        setChores(newData.chore_data);
-        setTodayScore(newData.today_score);
-        setAllTimeScore(newData.all_time_score);
-        setLastResetDate(newData.last_reset_date);
-        setJustLoaded(true); // Prevent saving what we just received
-      }
-    )
-    .subscribe();
+    // Poll for updates every 3 seconds
+    const interval = setInterval(loadData, 3000);
 
-  // Cleanup subscription on unmount
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+    return () => clearInterval(interval);
+  }, []);
 
   // Check for daily reset
   useEffect(() => {
