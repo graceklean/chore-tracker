@@ -163,7 +163,7 @@ export default function ChoreTracker() {
     };
 
     resetIfNeeded();
-  }, [mounted, lastResetDate, chores, allTimeScore, todayScore]);
+  }, [mounted, lastResetDate]);
 
   // Save chores to Supabase whenever they change (but not on initial load or realtime update)
 useEffect(() => {
