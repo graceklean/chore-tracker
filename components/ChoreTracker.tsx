@@ -115,18 +115,27 @@ export default function ChoreTracker() {
       lastInteraction = Date.now();
     };
     
+    // Refresh when page becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    
     window.addEventListener('click', handleInteraction);
     window.addEventListener('touchstart', handleInteraction);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     loadData();
 
-    // Poll for updates every 3 seconds
-    const interval = setInterval(loadData, 3000);
+    // Poll for updates every 2 seconds
+    const interval = setInterval(loadData, 2000);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
