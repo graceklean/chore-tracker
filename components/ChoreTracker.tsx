@@ -135,7 +135,7 @@ export default function ChoreTracker() {
     if (!mounted) return;
 
     const resetIfNeeded = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
       if (today !== lastResetDate) {
         const newAllTimeScore = allTimeScore + todayScore;
         const resetChores = chores.map(chore => ({ ...chore, completed: false }));
