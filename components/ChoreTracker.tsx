@@ -147,7 +147,7 @@ export default function ChoreTracker() {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
       if (today !== lastResetDate) {
         console.log('🔄 RESET TRIGGERED:', { today, lastResetDate, allTimeScore, todayScore });
-        const newAllTimeScore = allTimeScore + todayScore;
+        const newAllTimeScore = allTimeScore;  // Don't add - it's already counted in the display
         console.log('📊 New all-time score will be:', newAllTimeScore);
         const resetChores = chores.map(chore => ({ ...chore, completed: false }));
 
