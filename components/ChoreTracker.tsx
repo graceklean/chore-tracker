@@ -177,33 +177,33 @@ export default function ChoreTracker() {
   }, [mounted, lastResetDate]);
 
   // Save chores to Supabase whenever they change (but not on initial load or realtime update)
-useEffect(() => {
-  if (!mounted || justLoaded) {
-    if (justLoaded) setJustLoaded(false);
-    return;
-  }
-
-  const saveData = async () => {
-    const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
-    setTodayScore(currentTodayScore);
-
-    try {
-      await supabase
-        .from('chores')
-        .update({
-          chore_data: chores,
-          today_score: currentTodayScore
-        })
-        .eq('id', 1);
-    } catch (error) {
-      console.error('Error saving chores:', error);
+  useEffect(() => {
+    if (!mounted || justLoaded) {
+      if (justLoaded) setJustLoaded(false);
+      return;
     }
-  };
 
-  // Add a small delay to debounce rapid changes
-  const timeoutId = setTimeout(saveData, 300);
-  return () => clearTimeout(timeoutId);
-}, [chores, mounted, justLoaded]);
+    const saveData = async () => {
+      const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+      setTodayScore(currentTodayScore);
+
+      try {
+        await supabase
+          .from('chores')
+          .update({
+            chore_data: chores,
+            today_score: currentTodayScore
+          })
+          .eq('id', 1);
+      } catch (error) {
+        console.error('Error saving chores:', error);
+      }
+    };
+
+    // Add a small delay to debounce rapid changes
+    const timeoutId = setTimeout(saveData, 300);
+    return () => clearTimeout(timeoutId);
+  }, [chores, mounted, justLoaded]);
 
   const toggleChore = (id: number) => {
     const chore = chores.find(c => c.id === id);
@@ -258,6 +258,7 @@ useEffect(() => {
           }
         `}</style>
       </div>
+
       {/* Celebration Modal */}
       {totalPoints === maxPoints && showCelebration && (
         <div 
@@ -312,7 +313,7 @@ useEffect(() => {
           <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-6 mt-4 border-2 border-purple-200 shadow-sm">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trophy className="w-8 h-8 text-purple-500 fill-purple-500" />
-              <span className="text-5xl font-black text-purple-600">{allTimeScore}</span>
+              <span className="text-5xl font-black text-purple-600">{allTimeScore + todayScore}</span>
               <TrendingUp className="w-8 h-8 text-pink-500" />
             </div>
             <p className="text-xl font-bold text-purple-600">
