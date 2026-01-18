@@ -147,7 +147,7 @@ export default function ChoreTracker() {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
       if (today !== lastResetDate) {
         console.log('🔄 RESET TRIGGERED:', { today, lastResetDate, allTimeScore, todayScore });
-        const newAllTimeScore = allTimeScore;  // Don't add - it's already counted in the display
+        const newAllTimeScore = allTimeScore + todayScore;
         console.log('📊 New all-time score will be:', newAllTimeScore);
         const resetChores = chores.map(chore => ({ ...chore, completed: false }));
 
@@ -312,7 +312,7 @@ useEffect(() => {
           <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-6 mt-4 border-2 border-purple-200 shadow-sm">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Trophy className="w-8 h-8 text-purple-500 fill-purple-500" />
-              <span className="text-5xl font-black text-purple-600">{allTimeScore + todayScore}</span>
+              <span className="text-5xl font-black text-purple-600">{allTimeScore}</span>
               <TrendingUp className="w-8 h-8 text-pink-500" />
             </div>
             <p className="text-xl font-bold text-purple-600">
