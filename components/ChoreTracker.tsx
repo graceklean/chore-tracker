@@ -29,6 +29,8 @@ export default function ChoreTracker() {
   const [mounted, setMounted] = useState(false);
   const [justLoaded, setJustLoaded] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState('');
 
   const playSound = (frequency: number, duration: number) => {
     if (typeof window === 'undefined') return;
@@ -232,6 +234,42 @@ export default function ChoreTracker() {
     }
   };
 
+  const handleRedeemReward = async () => {
+    const pointsToRedeem = parseInt(redeemPoints);
+    
+    if (isNaN(pointsToRedeem) || pointsToRedeem <= 0) {
+      alert('Please enter a valid number of points');
+      return;
+    }
+
+    const currentTotal = allTimeScore + todayScore;
+    
+    if (pointsToRedeem > currentTotal) {
+      alert(`Not enough points! You have ${currentTotal} stars.`);
+      return;
+    }
+
+    // Deduct from all_time_score
+    const newAllTimeScore = allTimeScore - pointsToRedeem;
+
+    try {
+      await supabase
+        .from('chores')
+        .update({
+          all_time_score: newAllTimeScore
+        })
+        .eq('id', 1);
+
+      setAllTimeScore(newAllTimeScore);
+      setShowRedeemModal(false);
+      setRedeemPoints('');
+      playCelebrationSound();
+    } catch (error) {
+      console.error('Error redeeming reward:', error);
+      alert('Failed to redeem reward. Please try again.');
+    }
+  };
+
   const totalPoints = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
   const maxPoints = chores.reduce((sum, c) => sum + c.points, 0);
 
@@ -285,6 +323,58 @@ export default function ChoreTracker() {
             >
               YAY! 🎈
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Redeem Reward Modal */}
+      {showRedeemModal && (
+        <div 
+          className="fixed inset-0 z-40 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={() => {
+            setShowRedeemModal(false);
+            setRedeemPoints('');
+          }}
+        >
+          <div 
+            className="bg-gradient-to-br from-blue-200 to-purple-200 rounded-3xl shadow-2xl p-8 sm:p-10 text-center border-4 border-white max-w-sm w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-4xl sm:text-5xl font-black text-purple-700 mb-4">
+              🎁 Redeem Reward! 🎁
+            </p>
+            <p className="text-lg font-bold text-purple-600 mb-4">
+              You have {allTimeScore + todayScore} stars
+            </p>
+            <p className="text-md text-purple-600 mb-6">
+              How many stars do you want to use?
+            </p>
+            <input
+              type="number"
+              value={redeemPoints}
+              onChange={(e) => setRedeemPoints(e.target.value)}
+              placeholder="Enter points"
+              className="w-full px-6 py-4 rounded-2xl text-2xl font-bold text-center border-4 border-purple-300 mb-6 focus:outline-none focus:border-purple-500"
+              min="1"
+            />
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowRedeemModal(false);
+                  setRedeemPoints('');
+                }}
+                className="flex-1 bg-gray-300 text-gray-700 px-6 py-4 rounded-2xl font-black text-xl hover:bg-gray-400 active:scale-95 transition-all shadow-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRedeemReward}
+                className="flex-1 bg-white text-purple-600 px-6 py-4 rounded-2xl font-black text-xl hover:bg-purple-50 active:scale-95 transition-all shadow-lg"
+              >
+                Redeem!
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -365,6 +455,19 @@ export default function ChoreTracker() {
               </div>
             </button>
           ))}
+        </div>
+
+        {/* Redeem Rewards Section */}
+        <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-6 sm:p-8 text-center border-2 border-blue-200">
+          <p className="text-2xl font-bold text-blue-600 mb-4">
+            🎁 Ready for a reward?
+          </p>
+          <button
+            onClick={() => setShowRedeemModal(true)}
+            className="bg-gradient-to-br from-blue-400 to-purple-400 text-white px-8 py-4 rounded-2xl font-black text-xl hover:from-blue-500 hover:to-purple-500 active:scale-95 transition-all shadow-lg"
+          >
+            Redeem Stars ✨
+          </button>
         </div>
       </div>
     </div>
