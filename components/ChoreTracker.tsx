@@ -147,14 +147,25 @@ export default function ChoreTracker() {
 
     const resetIfNeeded = async () => {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+      console.log('🔍 Checking reset:', { today, lastResetDate, datesMatch: today === lastResetDate });
+      
       if (today !== lastResetDate) {
-        console.log('🔄 RESET TRIGGERED:', { today, lastResetDate, allTimeScore, todayScore });
+        console.log('🔄 RESET TRIGGERED!');
+        console.log('📋 Current state:', { 
+          allTimeScore, 
+          todayScore, 
+          chores: chores.map(c => ({ name: c.name, completed: c.completed }))
+        });
+        
         const newAllTimeScore = allTimeScore + todayScore;
         console.log('📊 New all-time score will be:', newAllTimeScore);
+        
         const resetChores = chores.map(chore => ({ ...chore, completed: false }));
+        console.log('✅ Reset chores created:', resetChores.map(c => ({ name: c.name, completed: c.completed })));
 
         try {
-          await supabase
+          console.log('💾 Saving to database...');
+          const result = await supabase
             .from('chores')
             .update({
               chore_data: resetChores,
@@ -164,14 +175,20 @@ export default function ChoreTracker() {
             })
             .eq('id', 1);
 
+          console.log('✅ Database update result:', result);
+
           setAllTimeScore(newAllTimeScore);
           setChores(resetChores);
           setTodayScore(0);
           setLastResetDate(today);
           setShowCelebration(false);
+          
+          console.log('🎉 Reset complete! State updated.');
         } catch (error) {
-          console.error('Error resetting chores:', error);
+          console.error('❌ Error resetting chores:', error);
         }
+      } else {
+        console.log('✋ No reset needed - same day');
       }
     };
 
