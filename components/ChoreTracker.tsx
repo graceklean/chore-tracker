@@ -141,59 +141,102 @@ export default function ChoreTracker() {
     };
   }, []);
 
-  // Check for daily reset
+  // Load data from Supabase, poll for changes, and handle daily reset
   useEffect(() => {
-    if (!mounted) return;
-
-    const resetIfNeeded = async () => {
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
-      console.log('🔍 Checking reset:', { today, lastResetDate, datesMatch: today === lastResetDate });
-      
-      if (today !== lastResetDate) {
-        console.log('🔄 RESET TRIGGERED!');
-        console.log('📋 Current state:', { 
-          allTimeScore, 
-          todayScore, 
-          chores: chores.map(c => ({ name: c.name, completed: c.completed }))
-        });
-        
-        const newAllTimeScore = allTimeScore + todayScore;
-        console.log('📊 New all-time score will be:', newAllTimeScore);
-        
-        const resetChores = chores.map(chore => ({ ...chore, completed: false }));
-        console.log('✅ Reset chores created:', resetChores.map(c => ({ name: c.name, completed: c.completed })));
-
-        try {
-          console.log('💾 Saving to database...');
-          const result = await supabase
-            .from('chores')
-            .update({
-              chore_data: resetChores,
-              last_reset_date: today,
-              all_time_score: newAllTimeScore,
-              today_score: 0
-            })
-            .eq('id', 1);
-
-          console.log('✅ Database update result:', result);
-
-          setAllTimeScore(newAllTimeScore);
-          setChores(resetChores);
-          setTodayScore(0);
-          setLastResetDate(today);
-          setShowCelebration(false);
-          
-          console.log('🎉 Reset complete! State updated.');
-        } catch (error) {
-          console.error('❌ Error resetting chores:', error);
-        }
-      } else {
-        console.log('✋ No reset needed - same day');
+    let lastInteraction = Date.now();
+    
+    const loadData = async () => {
+      // Don't load if user interacted in the last 2 seconds
+      if (Date.now() - lastInteraction < 2000) {
+        return;
       }
+      
+      try {
+        const { data, error } = await supabase
+          .from('chores')
+          .select('*')
+          .eq('id', 1)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+          
+          // Check if reset is needed using fresh data from database
+          if (data.last_reset_date !== today) {
+            console.log('🔄 RESET TRIGGERED with fresh DB data!');
+            console.log('📋 DB state:', { 
+              all_time_score: data.all_time_score, 
+              today_score: data.today_score,
+              last_reset_date: data.last_reset_date 
+            });
+            
+            const newAllTimeScore = data.all_time_score + data.today_score;
+            const resetChores = data.chore_data.map((chore: any) => ({ ...chore, completed: false }));
+
+            await supabase
+              .from('chores')
+              .update({
+                chore_data: resetChores,
+                last_reset_date: today,
+                all_time_score: newAllTimeScore,
+                today_score: 0
+              })
+              .eq('id', 1);
+
+            console.log('🎉 Reset complete! New all-time:', newAllTimeScore);
+
+            setChores(resetChores);
+            setLastResetDate(today);
+            setAllTimeScore(newAllTimeScore);
+            setTodayScore(0);
+            setShowCelebration(false);
+            setJustLoaded(true);
+          } else {
+            // Normal load - no reset needed
+            setChores(data.chore_data);
+            setLastResetDate(data.last_reset_date);
+            setAllTimeScore(data.all_time_score);
+            setTodayScore(data.today_score);
+            setJustLoaded(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+      
+      if (!mounted) setMounted(true);
     };
 
-    resetIfNeeded();
-  }, [mounted, lastResetDate]);
+    // Track user interactions
+    const handleInteraction = () => {
+      lastInteraction = Date.now();
+    };
+    
+    // Refresh when page becomes visible
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    
+    window.addEventListener('click', handleInteraction);
+    window.addEventListener('touchstart', handleInteraction);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    loadData();
+
+    // Poll for updates every 2 seconds
+    const interval = setInterval(loadData, 2000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Save chores to Supabase whenever they change (but not on initial load or realtime update)
   useEffect(() => {
