@@ -240,41 +240,6 @@ export default function ChoreTracker() {
     };
   }, []);
 
-  // Save chores to Supabase whenever they change (but not on initial load or realtime update)
-  useEffect(() => {
-    console.log('💾 Save check:', { mounted, justLoaded, numChores: chores.length });
-    
-    if (!mounted || justLoaded) {
-      console.log('⏭️ Skipping save:', mounted ? 'justLoaded=true' : 'not mounted yet');
-      if (justLoaded) setJustLoaded(false);
-      return;
-    }
-
-    const saveData = async () => {
-      const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
-      const completedChores = chores.filter(c => c.completed).map(c => c.name);
-      console.log('💾 SAVING to DB:', { todayScore: currentTodayScore, completedChores });
-      
-      setTodayScore(currentTodayScore);
-
-      try {
-        await supabase
-          .from('chores')
-          .update({
-            chore_data: chores,
-            today_score: currentTodayScore
-          })
-          .eq('id', 1);
-        console.log('✅ Saved successfully');
-      } catch (error) {
-        console.error('❌ Error saving chores:', error);
-      }
-    };
-
-    // Add a small delay to debounce rapid changes
-    const timeoutId = setTimeout(saveData, 300);
-    return () => clearTimeout(timeoutId);
-  }, [chores, mounted, justLoaded]);
 
   const toggleChore = (id: number) => {
     const chore = chores.find(c => c.id === id);
@@ -282,9 +247,32 @@ export default function ChoreTracker() {
     
     const willBeCompleted = !chore.completed;
     
-    setChores(chores.map(c => 
+    const newChores = chores.map(c => 
       c.id === id ? { ...c, completed: !c.completed } : c
-    ));
+    );
+    
+    setChores(newChores);
+
+    // Save immediately after toggling
+    const currentTodayScore = newChores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+    setTodayScore(currentTodayScore);
+    
+    console.log('💾 SAVING after toggle:', { choreId: id, willBeCompleted, todayScore: currentTodayScore });
+    
+    (async () => {
+      try {
+        await supabase
+          .from('chores')
+          .update({
+            chore_data: newChores,
+            today_score: currentTodayScore
+          })
+          .eq('id', 1);
+        console.log('✅ Saved after toggle');
+      } catch (error) {
+        console.error('❌ Error saving:', error);
+      }
+    })();
 
     if (willBeCompleted) {
       playCheckSound();
@@ -292,7 +280,6 @@ export default function ChoreTracker() {
       playUncheckSound();
     }
 
-    const newChores = chores.map(c => c.id === id ? { ...c, completed: !c.completed } : c);
     const allComplete = newChores.every(c => c.completed);
     
     if (allComplete && willBeCompleted) {
