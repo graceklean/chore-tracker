@@ -163,6 +163,8 @@ export default function ChoreTracker() {
         if (data) {
           const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
           
+          console.log('🔍 POLLING CHECK:', { dbDate: data.last_reset_date, today, needsReset: data.last_reset_date !== today });
+          
           // Check if reset is needed using fresh data from database
           if (data.last_reset_date !== today) {
             console.log('🔄 RESET TRIGGERED with fresh DB data!');
