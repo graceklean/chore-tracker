@@ -27,7 +27,7 @@ export default function ChoreTracker() {
   const [allTimeScore, setAllTimeScore] = useState<number>(0);
   const [todayScore, setTodayScore] = useState<number>(0);
   const [mounted, setMounted] = useState(false);
-  const [justLoaded, setJustLoaded] = useState(false);
+  const [lastSaveTime, setLastSaveTime] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [redeemPoints, setRedeemPoints] = useState('');
@@ -103,7 +103,6 @@ export default function ChoreTracker() {
           setLastResetDate(data.last_reset_date);
           setAllTimeScore(data.all_time_score);
           setTodayScore(data.today_score);
-          setJustLoaded(true);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -194,14 +193,18 @@ export default function ChoreTracker() {
             setAllTimeScore(newAllTimeScore);
             setTodayScore(0);
             setShowCelebration(false);
-            setJustLoaded(true);
           } else {
             // Normal load - no reset needed
-            setChores(data.chore_data);
-            setLastResetDate(data.last_reset_date);
-            setAllTimeScore(data.all_time_score);
-            setTodayScore(data.today_score);
-            setJustLoaded(true);
+            // Only load if we haven't saved recently (within last 5 seconds)
+            const timeSinceLastSave = Date.now() - lastSaveTime;
+            if (timeSinceLastSave > 5000) {
+              setChores(data.chore_data);
+              setLastResetDate(data.last_reset_date);
+              setAllTimeScore(data.all_time_score);
+              setTodayScore(data.today_score);
+            } else {
+              console.log('⏭️ Skipping load - saved recently');
+            }
           }
         }
       } catch (error) {
@@ -259,7 +262,7 @@ export default function ChoreTracker() {
     
     console.log('💾 SAVING after toggle:', { choreId: id, willBeCompleted, todayScore: currentTodayScore });
     
-    setJustLoaded(true); // Prevent polling from overwriting while we save
+    setLastSaveTime(Date.now()); // Mark save time to prevent polling from overwriting
     
     (async () => {
       try {
@@ -271,12 +274,8 @@ export default function ChoreTracker() {
           })
           .eq('id', 1);
         console.log('✅ Saved after toggle');
-        
-        // Keep justLoaded true for 3 seconds to prevent polling from overwriting
-        setTimeout(() => setJustLoaded(false), 3000);
       } catch (error) {
         console.error('❌ Error saving:', error);
-        setJustLoaded(false);
       }
     })();
 
