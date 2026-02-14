@@ -242,13 +242,19 @@ export default function ChoreTracker() {
 
   // Save chores to Supabase whenever they change (but not on initial load or realtime update)
   useEffect(() => {
+    console.log('💾 Save check:', { mounted, justLoaded, numChores: chores.length });
+    
     if (!mounted || justLoaded) {
+      console.log('⏭️ Skipping save:', mounted ? 'justLoaded=true' : 'not mounted yet');
       if (justLoaded) setJustLoaded(false);
       return;
     }
 
     const saveData = async () => {
       const currentTodayScore = chores.filter(c => c.completed).reduce((sum, c) => sum + c.points, 0);
+      const completedChores = chores.filter(c => c.completed).map(c => c.name);
+      console.log('💾 SAVING to DB:', { todayScore: currentTodayScore, completedChores });
+      
       setTodayScore(currentTodayScore);
 
       try {
@@ -259,8 +265,9 @@ export default function ChoreTracker() {
             today_score: currentTodayScore
           })
           .eq('id', 1);
+        console.log('✅ Saved successfully');
       } catch (error) {
-        console.error('Error saving chores:', error);
+        console.error('❌ Error saving chores:', error);
       }
     };
 
