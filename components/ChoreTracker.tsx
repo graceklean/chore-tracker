@@ -259,6 +259,8 @@ export default function ChoreTracker() {
     
     console.log('💾 SAVING after toggle:', { choreId: id, willBeCompleted, todayScore: currentTodayScore });
     
+    setJustLoaded(true); // Prevent polling from overwriting while we save
+    
     (async () => {
       try {
         await supabase
@@ -269,8 +271,12 @@ export default function ChoreTracker() {
           })
           .eq('id', 1);
         console.log('✅ Saved after toggle');
+        
+        // Keep justLoaded true for 3 seconds to prevent polling from overwriting
+        setTimeout(() => setJustLoaded(false), 3000);
       } catch (error) {
         console.error('❌ Error saving:', error);
+        setJustLoaded(false);
       }
     })();
 
